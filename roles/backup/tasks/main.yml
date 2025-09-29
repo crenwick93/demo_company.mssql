@@ -40,8 +40,22 @@
       }
       Backup-DbaDatabase @params
 
-- name: Fetch .bak to control node
-  ansible.windows.win_fetch:
+- name: Ensure controller backup directory exists
+  ansible.builtin.file:
+    path: "{{ controller_backup_path | dirname }}"
+    state: directory
+  delegate_to: localhost
+  run_once: true
+
+- name: Read .bak from source
+  ansible.windows.slurp:
     src: "{{ backup_fullpath }}"
+  register: backup_b64
+
+- name: Write .bak to controller
+  ansible.builtin.copy:
+    content: "{{ backup_b64.content | b64decode }}"
     dest: "{{ controller_backup_path }}"
-    flat: true
+    force: false
+  delegate_to: localhost
+  run_once: true
