@@ -24,12 +24,14 @@
 
 - name: Set backup file paths
   ansible.builtin.set_fact:
-    backup_fullpath: "{{ backup_dir }}\\{{ db_name }}.bak"
-    controller_backup_path: "{{ controller_backup_path | default(playbook_dir + '/files/' + db_name + '.bak') }}"
+    backup_filename: "{{ backup_file | default(db_name + '.bak') }}"
+    backup_fullpath: "{{ backup_dir }}\\{{ backup_filename }}"
+    controller_backup_path: "{{ controller_backup_path | default(playbook_dir + '/files/' + backup_filename) }}"
 
 - name: Perform FULL backup on source (dbatools)
   ansible.windows.win_powershell:
     script: |
+      $ErrorActionPreference = 'Stop'
       Import-Module dbatools -ErrorAction Stop
       $params = @{
         SqlInstance   = "localhost\{{ sql_instance }}"
@@ -42,6 +44,16 @@
       }
       Backup-DbaDatabase @params
 
+- name: Verify backup file exists
+  ansible.windows.win_stat:
+    path: "{{ backup_fullpath }}"
+  register: backup_stat
+
+- name: Fail if backup file not found
+  ansible.builtin.fail:
+    msg: "Expected backup file not found: {{ backup_fullpath }}. Verify SQL instance, permissions, and path."
+  when: not backup_stat.stat.exists
+
 - name: Ensure controller backup directory exists
   ansible.builtin.file:
     path: "{{ controller_backup_path | dirname }}"
@@ -53,6 +65,7 @@
   ansible.windows.slurp:
     src: "{{ backup_fullpath }}"
   register: backup_b64
+  when: backup_stat.stat.exists
 
 - name: Write .bak to controller
   ansible.builtin.copy:
