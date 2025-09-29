@@ -1,0 +1,11 @@
+---
+sql_instance: MSSQLSERVER
+db_name: ExampleDb
+backup_dir: C:\\MSSQL_Backups
+
+# Validation toggles
+validate_online: true
+validate_verifyonly: true
+validate_dbcc: false
+validation_queries: []
+

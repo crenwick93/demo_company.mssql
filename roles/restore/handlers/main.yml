@@ -1,0 +1,8 @@
+---
+- name: delete controller backup
+  ansible.builtin.file:
+    path: "{{ controller_backup_path | default(playbook_dir + '/files/' + db_name + '.bak') }}"
+    state: absent
+  delegate_to: localhost
+  run_once: true
+

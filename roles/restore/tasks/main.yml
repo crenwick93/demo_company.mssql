@@ -1,0 +1,51 @@
+---
+- name: Ensure backup directory exists on target
+  ansible.windows.win_file:
+    path: "{{ backup_dir }}"
+    state: directory
+
+- name: Copy .bak from controller to target
+  ansible.windows.win_copy:
+    src: "{{ controller_backup_path | default(playbook_dir + '/files/' + db_name + '.bak') }}"
+    dest: "{{ backup_dir }}\\{{ db_name }}.bak"
+
+- name: Ensure dbatools PowerShell module is present
+  ansible.windows.win_psmodule:
+    name: dbatools
+    state: present
+
+- name: Query logical file names from backup (dbatools)
+  ansible.windows.win_powershell:
+    script: |
+      Import-Module dbatools -ErrorAction Stop
+      $files = Read-DbaBackupHeader -SqlInstance "localhost\{{ sql_instance }}" -Path "{{ backup_dir }}\{{ db_name }}.bak"
+      $files | ForEach-Object { Write-Output ("{0},{1}" -f $_.LogicalName, $_.Type) }
+  register: filelist
+
+- name: Parse logical names (best-effort)
+  ansible.builtin.set_fact:
+    data_logical: "{{ (filelist.stdout_lines | select('search', ',D$') | list | first | default('')).split(',')[0] }}"
+    log_logical: "{{ (filelist.stdout_lines | select('search', ',L$') | list | first | default('')).split(',')[0] }}"
+
+- name: Build RESTORE command with MOVE
+  ansible.builtin.set_fact:
+    restore_script: |
+      Import-Module dbatools -ErrorAction Stop
+      $dataMove = $null
+      $logMove = $null
+      if ('{{ data_logical }}') { $dataMove = "{{ data_logical }}={{ restore_data_path }}\{{ db_name }}.mdf" }
+      if ('{{ log_logical }}') { $logMove = "{{ log_logical }}={{ restore_log_path }}\{{ db_name }}_log.ldf" }
+      $params = @{
+        SqlInstance = "localhost\{{ sql_instance }}"
+        Path        = "{{ backup_dir }}\{{ db_name }}.bak"
+        Database    = "{{ db_name }}"
+        WithReplace = $true
+      }
+      if ($dataMove) { $params['DestinationDataDirectory'] = "{{ restore_data_path }}" }
+      if ($logMove)  { $params['DestinationLogDirectory']  = "{{ restore_log_path }}" }
+      Restore-DbaDatabase @params | Out-Null
+
+- name: Restore database on target
+  ansible.windows.win_powershell:
+    script: "{{ restore_script }}"
+  notify: delete controller backup

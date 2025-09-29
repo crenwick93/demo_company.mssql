@@ -1,0 +1,6 @@
+---
+sql_instance: MSSQLSERVER
+db_name: REDHAT
+backup_dir: C:\\MSSQL_Backups
+controller_backup_path: "{{ playbook_dir }}/files/{{ db_name }}.bak"
+

@@ -1,0 +1,8 @@
+---
+sql_instance: MSSQLSERVER
+db_name: ExampleDb
+backup_dir: C:\\MSSQL_Backups
+restore_data_path: C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\DATA
+restore_log_path: C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\DATA
+controller_backup_path: "{{ playbook_dir }}/files/{{ db_name }}.bak"
+

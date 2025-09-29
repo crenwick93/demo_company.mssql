@@ -1,0 +1,44 @@
+---
+- name: Ensure dbatools PowerShell module is present
+  ansible.windows.win_psmodule:
+    name: dbatools
+    state: present
+
+- name: Validate database is ONLINE
+  when: validate_online | bool
+  ansible.windows.win_powershell:
+    script: |
+      Import-Module dbatools -ErrorAction Stop
+      $db = Get-DbaDatabase -SqlInstance "localhost\{{ sql_instance }}" -Database "{{ db_name }}" -ErrorAction Stop
+      if ($db.Status -ne 'Normal') {
+        throw "Database {{ db_name }} status is $($db.Status), expected Normal (ONLINE)"
+      }
+
+- name: Run RESTORE VERIFYONLY on backup file
+  when: validate_verifyonly | bool
+  ansible.windows.win_powershell:
+    script: |
+      Import-Module dbatools -ErrorAction Stop
+      Test-DbaLastBackup -SqlInstance "localhost\{{ sql_instance }}" -Database "{{ db_name }}" -VerifyOnly -Path "{{ backup_dir }}\{{ db_name }}.bak" -ErrorAction Stop | Out-Null
+
+- name: Run DBCC CHECKDB (optional)
+  when: validate_dbcc | bool
+  ansible.windows.win_powershell:
+    script: |
+      Import-Module dbatools -ErrorAction Stop
+      Invoke-DbaDbCheck -SqlInstance "localhost\{{ sql_instance }}" -Database "{{ db_name }}" -MaxDOP 2 -PhysicalOnly -ErrorAction Stop | Out-Null
+
+- name: Run custom validation queries (optional)
+  when: validation_queries | length > 0
+  ansible.windows.win_powershell:
+    script: |
+      Import-Module dbatools -ErrorAction Stop
+      $queries = @(
+      {% for q in validation_queries %}
+        @"{{ q }}"@
+      {% endfor %}
+      )
+      foreach ($q in $queries) {
+        $null = Invoke-DbaQuery -SqlInstance "localhost\{{ sql_instance }}" -Database "{{ db_name }}" -Query $q -ErrorAction Stop
+      }
+

@@ -1,0 +1,49 @@
+# OS
+.DS_Store
+Thumbs.db
+.ansible
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.cache/
+*.egg-info/
+.eggs/
+.coverage
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+
+# Logs
+*.log
+
+# Ansible
+*.retry
+.ansible-lint
+
+# Collection build artifacts
+demo_company-mssql-*.tar.gz
+
+# Build outputs
+build/
+dist/
+
+# Database/backup artifacts
+*.bak
+

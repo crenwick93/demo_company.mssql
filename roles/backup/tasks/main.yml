@@ -1,0 +1,36 @@
+---
+- name: Ensure backup directory exists on source
+  ansible.windows.win_file:
+    path: "{{ backup_dir }}"
+    state: directory
+
+- name: Ensure dbatools PowerShell module is present
+  ansible.windows.win_psmodule:
+    name: dbatools
+    state: present
+
+- name: Set backup file paths
+  ansible.builtin.set_fact:
+    backup_fullpath: "{{ backup_dir }}\\{{ db_name }}.bak"
+    controller_backup_path: "{{ controller_backup_path | default(playbook_dir + '/files/' + db_name + '.bak') }}"
+
+- name: Perform FULL backup on source (dbatools)
+  ansible.windows.win_powershell:
+    script: |
+      Import-Module dbatools -ErrorAction Stop
+      $params = @{
+        SqlInstance   = "localhost\{{ sql_instance }}"
+        Database      = "{{ db_name }}"
+        BackupFile    = "{{ backup_fullpath }}"
+        Type          = 'Full'
+        CopyOnly      = $true
+        Compress      = $true
+        Initialize    = $true
+      }
+      Backup-DbaDatabase @params
+
+- name: Fetch .bak to control node
+  ansible.windows.win_fetch:
+    src: "{{ backup_fullpath }}"
+    dest: "{{ controller_backup_path }}"
+    flat: true
