@@ -8,15 +8,17 @@
   ansible.windows.win_powershell:
     script: |
       $Ansible.Changed = $false
+      $ErrorActionPreference = 'Stop'
+      try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+      if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) {
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop
+      }
+      if (-not (Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue)) {
+        Register-PSRepository -Default -ErrorAction Stop
+      }
+      try { Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue } catch {}
       if (-not (Get-Module -ListAvailable -Name dbatools)) {
-        $ErrorActionPreference = 'Stop'
-        try {
-          if (-not (Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue)) {
-            Register-PSRepository -Default -ErrorAction Stop
-          }
-          Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
-        } catch {}
-        Install-Module -Name dbatools -Force -Scope AllUsers -AllowClobber -ErrorAction Stop
+        Install-Module -Name dbatools -Force -Scope AllUsers -AllowClobber -Confirm:$false -ErrorAction Stop
         $Ansible.Changed = $true
       }
 
