@@ -5,9 +5,20 @@
     state: directory
 
 - name: Ensure dbatools PowerShell module is present
-  ansible.windows.win_psmodule:
-    name: dbatools
-    state: present
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      if (-not (Get-Module -ListAvailable -Name dbatools)) {
+        $ErrorActionPreference = 'Stop'
+        try {
+          if (-not (Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue)) {
+            Register-PSRepository -Default -ErrorAction Stop
+          }
+          Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+        } catch {}
+        Install-Module -Name dbatools -Force -Scope AllUsers -AllowClobber -ErrorAction Stop
+        $Ansible.Changed = $true
+      }
 
 - name: Set backup file paths
   ansible.builtin.set_fact:

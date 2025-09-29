@@ -8,11 +8,23 @@
   ansible.windows.win_copy:
     src: "{{ controller_backup_path | default(playbook_dir + '/files/' + db_name + '.bak') }}"
     dest: "{{ backup_dir }}\\{{ db_name }}.bak"
+    force: false
 
 - name: Ensure dbatools PowerShell module is present
-  ansible.windows.win_psmodule:
-    name: dbatools
-    state: present
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      if (-not (Get-Module -ListAvailable -Name dbatools)) {
+        $ErrorActionPreference = 'Stop'
+        try {
+          if (-not (Get-PSRepository -Name 'PSGallery' -ErrorAction SilentlyContinue)) {
+            Register-PSRepository -Default -ErrorAction Stop
+          }
+          Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+        } catch {}
+        Install-Module -Name dbatools -Force -Scope AllUsers -AllowClobber -ErrorAction Stop
+        $Ansible.Changed = $true
+      }
 
 - name: Query logical file names from backup (dbatools)
   ansible.windows.win_powershell:
@@ -21,6 +33,7 @@
       $files = Read-DbaBackupHeader -SqlInstance "localhost\{{ sql_instance }}" -Path "{{ backup_dir }}\{{ db_name }}.bak"
       $files | ForEach-Object { Write-Output ("{0},{1}" -f $_.LogicalName, $_.Type) }
   register: filelist
+  changed_when: false
 
 - name: Parse logical names (best-effort)
   ansible.builtin.set_fact:
